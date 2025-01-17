@@ -1,12 +1,13 @@
+
 import pandas as pd
 from transformers import AlbertTokenizer
 import numpy as np
 
 #Load Dataframes
-postings_df = pd.read_csv('postings.csv')
-fake_postings_df = pd.read_csv('Fake Postings.csv')
-industries_df = pd.read_csv('industries.csv')
-job_industries_df = pd.read_csv('job_industries.csv')
+postings_df = pd.read_csv(r"C:\Users\ashcr\Downloads\Fake Job Detector\postings.csv")
+fake_postings_df = pd.read_csv(r"C:\Users\ashcr\Downloads\Fake Job Detector\Fake Postings.csv")
+industries_df = pd.read_csv(r"C:\Users\ashcr\Downloads\Fake Job Detector\industries.csv")
+job_industries_df = pd.read_csv(r"C:\Users\ashcr\Downloads\Fake Job Detector\job_industries.csv")
 
 #Adding industries because in this dataset all the jobs have an ID that corresponds to a separate mapping csv 
 #which uses a separate lookup csv of industry names and its just too much.
@@ -47,18 +48,35 @@ columns_to_remove = [
         'zip_code',
         'fips'
     ]
-postings_df = postings_df.drop(columns=columns_to_remove)
+
+final_postings_df = final_postings_df.drop(columns=columns_to_remove)
 fake_postings_df = fake_postings_df.drop(columns='benefits')
 
-#Add industry information to real postings from separate csv
-postings_df['industry'] = industries_df['industry_name']
 
 #Add labels to real postings
-postings_df['fraudulent'] = 0
+final_postings_df['fraudulent'] = 0
 
+#Reorder columns 
+print(list(final_postings_df.columns.values))
+###fake_postings_df['company_profile'] = fake_postings_df['company_profile'].str.replace(r'\s*-\s*Established\s*\d{4}\.*', '', regex=True)
+final_postings_df = final_postings_df[['title', 'description', 'company_name', 'location', 'normalized_salary', 'formatted_work_type',
+                                       'industry_name', 'fraudulent']]
 
+def calculate_mean_salary(salary_range):
+    start, end = salary_range.replace('$', '').split('-')
+    mean = (int(start) + int(end)) // 2
+    return mean
 
+fake_postings_df['salary_range'] = fake_postings_df['salary_range'].apply(calculate_mean_salary)
 
+#Prepare to load into model
+category_template = ['title', 'description', 'company_name', 'location', 'salary', 'work_type', 'industry', 'fraudulent']
 
+def label_with_categories(df, categories):
+    return df.apply(lambda row: [f"{cat}:{val}" for cat, val in zip(categories, row)], axis=1)
 
+labeled_final_postings_df = label_with_categories(final_postings_df, category_template)
+labeled_fake_postings_df= label_with_categories(fake_postings_df, category_template)
 
+X1 = labeled_final_postings_df.apply(lambda x: ' '.join(x), axis=1).values
+X2 = labeled_fake_postings_df.apply(lambda x: ' '.join(x), axis=1).values
