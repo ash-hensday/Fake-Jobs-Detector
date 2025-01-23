@@ -24,7 +24,7 @@ class Preprocessor:
         ]
 
         final_postings_df = final_postings_df.drop(columns=columns_to_remove)
-        self.fake_postings_df = self.fake_postings_df.drop(columns='benefits')
+        self.fake_postings_df = self.fake_postings_df.drop(columns=['benefits', 'requirements'])
 
         # Add labels to real postings
         final_postings_df['fraudulent'] = 0
@@ -59,5 +59,8 @@ class Preprocessor:
 
         X1 = labeled_final_postings_df.apply(lambda x: ' '.join(x), axis=1).values
         X2 = labeled_fake_postings_df.apply(lambda x: ' '.join(x), axis=1).values
+
+        y1 = [0] * len(X1)
+        y2 = [1] * len(X2)
 
         return X1, X2
