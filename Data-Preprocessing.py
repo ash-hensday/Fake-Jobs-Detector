@@ -20,14 +20,11 @@ class Preprocessor:
             'original_listed_time', 'remote_allowed', 'job_posting_url', 'application_url',
             'application_type', 'expiry', 'work_type', 'closed_time', 'formatted_experience_level',
             'skills_desc', 'listed_time', 'posting_domain', 'sponsored', 'currency',
-            'compensation_type', 'max_salary', 'med_salary', 'min_salary', 'zip_code', 'fips'
+            'compensation_type', 'max_salary', 'med_salary', 'min_salary', 'zip_code', 'fips', 'fraudulent'
         ]
 
         final_postings_df = final_postings_df.drop(columns=columns_to_remove)
         self.fake_postings_df = self.fake_postings_df.drop(columns=['benefits', 'requirements'])
-
-        # Add labels to real postings
-        final_postings_df['fraudulent'] = 0
 
         # Reorder columns
         self.fake_postings_df['company_profile'] = self.fake_postings_df['company_profile'].str.replace(r'\s*-\s*Established\s*\d{4}\.*', '', regex=True)
@@ -63,4 +60,7 @@ class Preprocessor:
         y1 = [0] * len(X1)
         y2 = [1] * len(X2)
 
-        return X1, X2
+        X = list(X1) + list(X2)
+        y = y1 + y2
+
+        return X, y
