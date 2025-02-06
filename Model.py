@@ -30,7 +30,7 @@ class LLMModel:
         self.class_weights = class_weights
 
     def tokenize_data(self, data, max_length=512):
-        return self.tokenizer(data, truncation=True, padding=False, return_tensors='pt', max_length=max_length)
+        return self.tokenizer(data, truncation=True, padding=True, return_tensors='pt', max_length=max_length)
     
     def prepare_dataset(self, X, y, test_size=0.2, val_size=0.2):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=y, random_state=42)
@@ -75,7 +75,6 @@ class LLMModel:
             per_device_train_batch_size=4,
             gradient_accumulation_steps=4,
             fp16=True,
-            device='cuda',
             evaluation_strategy="epoch" if val_encodings and val_labels else "no",
             save_strategy="epoch",
             logging_dir='./logs',

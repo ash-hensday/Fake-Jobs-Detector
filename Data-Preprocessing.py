@@ -20,15 +20,15 @@ class Preprocessor:
             'original_listed_time', 'remote_allowed', 'job_posting_url', 'application_url',
             'application_type', 'expiry', 'work_type', 'closed_time', 'formatted_experience_level',
             'skills_desc', 'listed_time', 'posting_domain', 'sponsored', 'currency',
-            'compensation_type', 'max_salary', 'med_salary', 'min_salary', 'zip_code', 'fips', 'fraudulent'
+            'compensation_type', 'max_salary', 'med_salary', 'min_salary', 'zip_code', 'fips'
         ]
 
         final_postings_df = final_postings_df.drop(columns=columns_to_remove)
-        self.fake_postings_df = self.fake_postings_df.drop(columns=['benefits', 'requirements'])
+        self.fake_postings_df = self.fake_postings_df.drop(columns=['benefits', 'requirements', 'fraudulent'])
 
         # Reorder columns
         self.fake_postings_df['company_profile'] = self.fake_postings_df['company_profile'].str.replace(r'\s*-\s*Established\s*\d{4}\.*', '', regex=True)
-        final_postings_df = final_postings_df[['title', 'description', 'company_name', 'location', 'normalized_salary', 'formatted_work_type', 'industry_name', 'fraudulent']]
+        final_postings_df = final_postings_df[['title', 'description', 'company_name', 'location', 'normalized_salary', 'formatted_work_type', 'industry_name']]
 
         return self.fake_postings_df, final_postings_df
 
@@ -43,7 +43,8 @@ class Preprocessor:
 
     @staticmethod
     def label_with_categories(df, categories):
-        return df.apply(lambda row: [f"{cat}:{val}" for cat, val in zip(categories, row)], axis=1)
+        return df.apply(lambda row: [f"{cat}:{row[cat]}" for cat in categories if cat in df.columns], axis=1)
+
 
     def prepare_data_for_model(self):
         fake_postings_df, final_postings_df = self.preprocess_data()
@@ -54,8 +55,8 @@ class Preprocessor:
         labeled_final_postings_df = self.label_with_categories(final_postings_df, category_template)
         labeled_fake_postings_df = self.label_with_categories(self.fake_postings_df, category_template)
 
-        X1 = labeled_final_postings_df.apply(lambda x: ' '.join(x), axis=1).values
-        X2 = labeled_fake_postings_df.apply(lambda x: ' '.join(x), axis=1).values
+        X1 = labeled_final_postings_df.apply(lambda x: ' '.join(x)).values
+        X2 = labeled_fake_postings_df.apply(lambda x: ' '.join(x)).values
 
         y1 = [0] * len(X1)
         y2 = [1] * len(X2)

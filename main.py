@@ -3,10 +3,10 @@ from Model import LLMModel
 
 def main():
     # Define dataset file paths
-    postings_path = "C:\Users\ashcr\Downloads\Fake Job Detector\postings.csv"
-    fake_postings_path = "C:\Users\ashcr\Downloads\Fake Job Detector\Fake Postings.csv"
-    industries_path = 'C:\Users\ashcr\Downloads\Fake Job Detector\industries.csv'
-    job_industries_path = 'C:\Users\ashcr\Downloads\Fake Job Detector\job_industries.csv'
+    postings_path = "/content/postings.csv"
+    fake_postings_path = "/content/Fake Postings.csv"
+    industries_path = '/content/industries.csv'
+    job_industries_path = '/content/job_industries.csv'
     
     # Initialize preprocessor and prepare data
     preprocessor = Preprocessor(postings_path, fake_postings_path, industries_path, job_industries_path)
@@ -22,9 +22,3 @@ def main():
     model.train_model(train_encodings, train_labels, val_encodings, val_labels)
     
     # Save the fine-tuned model
-    model.save_model()
-    
-    print("Training complete. Model saved.")
-
-if __name__ == "__main__":
-    main()
