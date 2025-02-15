@@ -41,22 +41,15 @@ class Preprocessor:
     def process_salaries(self):
         self.fake_postings_df['salary_range'] = self.fake_postings_df['salary_range'].apply(self.calculate_mean_salary)
 
-    @staticmethod
-    def label_with_categories(df, categories):
-        return df.apply(lambda row: [f"{cat}:{row[cat]}" for cat in categories if cat in df.columns], axis=1)
-
-
     def prepare_data_for_model(self):
         fake_postings_df, final_postings_df = self.preprocess_data()
         self.process_salaries()
 
-        category_template = ['title', 'description', 'company_name', 'location', 'salary', 'work_type', 'industry', 'fraudulent']
+        final_postings_df = final_postings_df.fillna(' ').astype(str)
+        X1 = final_postings_df.apply(' '.join, axis=1).tolist()
 
-        labeled_final_postings_df = self.label_with_categories(final_postings_df, category_template)
-        labeled_fake_postings_df = self.label_with_categories(self.fake_postings_df, category_template)
-
-        X1 = labeled_final_postings_df.apply(lambda x: ' '.join(x)).values
-        X2 = labeled_fake_postings_df.apply(lambda x: ' '.join(x)).values
+        fake_postings_df = fake_postings_df.fillna(' ').astype(str)
+        X2 = fake_postings_df.apply(' '.join, axis=1).tolist()
 
         y1 = [0] * len(X1)
         y2 = [1] * len(X2)
