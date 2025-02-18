@@ -23,29 +23,38 @@ class CustomTrainer(Trainer):
 
 class LLMModel:
     def __init__(self, model_name='albert-base-v2', num_labels=2, class_weights=None):
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.tokenizer = AlbertTokenizer.from_pretrained(model_name)
-        self.model = AlbertForSequenceClassification.from_pretrained(model_name, num_labels=num_labels, 
+        self.model = AlbertForSequenceClassification.from_pretrained(model_name, num_labels=num_labels,
                                                                      problem_type="single_label_classification",
-                                                                     hidden_dropout_prob=0.1)
+                                                                     hidden_dropout_prob=0.1).to(self.device)
         self.class_weights = class_weights
 
     def tokenize_data(self, data, max_length=512):
-        return self.tokenizer(data, truncation=True, padding=True, return_tensors='pt', max_length=max_length)
-    
+      encodings = self.tokenizer(
+          data, truncation=True, padding=True, max_length=max_length, return_tensors="pt"
+          )
+      return {
+          'input_ids': encodings['input_ids'],
+          'attention_mask': encodings['attention_mask']
+          }
+
     def prepare_dataset(self, X, y, test_size=0.2, val_size=0.2):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=y, random_state=42)
         X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=val_size, stratify=y_train, random_state=42)
         class_weights = compute_class_weight(
-        class_weight='balanced', 
-        classes=np.unique(y_train), 
+        class_weight='balanced',
+        classes=np.unique(y_train),
         y=y_train
     )
         self.class_weights = torch.tensor(class_weights, dtype=torch.float)
         train_encodings = self.tokenize_data(X_train)
+        print(type(train_encodings))  # should be dict
+        print(type(train_encodings['input_ids']))  # should be <class 'torch.Tensor'>
         test_encodings = self.tokenize_data(X_test)
         val_encodings = self.tokenize_data(X_val)
         return train_encodings, y_train, test_encodings, y_test, val_encodings, y_val
-    
+
     def compute_metrics(self, eval_pred):
         predictions, labels = eval_pred
         predictions = np.argmax(predictions, axis=1)
@@ -54,26 +63,27 @@ class LLMModel:
         return {"accuracy": accuracy, "f1": f1}
 
     def train_model(self, train_encodings, train_labels, val_encodings, val_labels, output_dir='./model_output'):
-        
+
         train_dataset = torch.utils.data.TensorDataset(
-            train_encodings['input_ids'],
-            train_encodings['attention_mask'],
-            torch.tensor(train_labels, dtype=torch.long)
+            train_encodings['input_ids'].to(self.device),
+            train_encodings['attention_mask'].to(self.device),
+            torch.tensor(train_labels, dtype=torch.long).to(self.device)
         )
-        
+
         val_dataset = None
         if val_encodings and val_labels:
             val_dataset = torch.utils.data.TensorDataset(
-                val_encodings['input_ids'],
-                val_encodings['attention_mask'],
-                torch.tensor(val_labels)
+                val_encodings['input_ids'].to(self.device),
+                val_encodings['attention_mask'].to(self.device),
+                torch.tensor(val_labels, dtype=torch.long).to(self.device)
             )
 
         training_args = TrainingArguments(
             output_dir=output_dir,
+            run_name='detector_01',
             num_train_epochs=5,
-            per_device_train_batch_size=4,
-            gradient_accumulation_steps=4,
+            per_device_train_batch_size=16,
+            gradient_accumulation_steps=2,
             fp16=True,
             evaluation_strategy="epoch" if val_encodings and val_labels else "no",
             save_strategy="epoch",
