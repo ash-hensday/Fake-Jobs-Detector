@@ -11,7 +11,7 @@ class CustomTrainer(Trainer):
         super().__init__(**kwargs)
         self.class_weights = class_weights
 
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         labels = inputs.pop("labels")  # Assumes inputs are dictionaries
         outputs = model(**inputs)
         logits = outputs.logits
@@ -20,6 +20,18 @@ class CustomTrainer(Trainer):
         )
         loss = loss_fct(logits.view(-1, model.config.num_labels), labels.view(-1))
         return (loss, outputs) if return_outputs else loss
+class MyDataset(torch.utils.data.Dataset):
+    def __init__(self, encodings, labels):
+        self.encodings = encodings
+        self.labels = labels
+
+    def __getitem__(self, idx):
+        item = {key: val[idx] for key, val in self.encodings.items()}
+        item['labels'] = self.labels[idx]
+        return item
+
+    def __len__(self):
+        return len(self.labels)
 
 class LLMModel:
     def __init__(self, model_name='albert-base-v2', num_labels=2, class_weights=None):
@@ -34,14 +46,13 @@ class LLMModel:
       encodings = self.tokenizer(
           data, truncation=True, padding=True, max_length=max_length, return_tensors="pt"
           )
-      return {
-          'input_ids': encodings['input_ids'],
-          'attention_mask': encodings['attention_mask']
-          }
-
+      return encodings
     def prepare_dataset(self, X, y, test_size=0.2, val_size=0.2):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=y, random_state=42)
         X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=val_size, stratify=y_train, random_state=42)
+        print(type(X_train))
+        print(type(y_train))
+      
         class_weights = compute_class_weight(
         class_weight='balanced',
         classes=np.unique(y_train),
@@ -49,8 +60,8 @@ class LLMModel:
     )
         self.class_weights = torch.tensor(class_weights, dtype=torch.float)
         train_encodings = self.tokenize_data(X_train)
-        print(type(train_encodings))  # should be dict
-        print(type(train_encodings['input_ids']))  # should be <class 'torch.Tensor'>
+        print(type(train_encodings))  # Should be dict
+        print(type(train_encodings['input_ids']))  # Should be <class 'torch.Tensor'>
         test_encodings = self.tokenize_data(X_test)
         val_encodings = self.tokenize_data(X_val)
         return train_encodings, y_train, test_encodings, y_test, val_encodings, y_val
@@ -64,19 +75,11 @@ class LLMModel:
 
     def train_model(self, train_encodings, train_labels, val_encodings, val_labels, output_dir='./model_output'):
 
-        train_dataset = torch.utils.data.TensorDataset(
-            train_encodings['input_ids'].to(self.device),
-            train_encodings['attention_mask'].to(self.device),
-            torch.tensor(train_labels, dtype=torch.long).to(self.device)
-        )
+        train_dataset = MyDataset(train_encodings, train_labels)
 
         val_dataset = None
         if val_encodings and val_labels:
-            val_dataset = torch.utils.data.TensorDataset(
-                val_encodings['input_ids'].to(self.device),
-                val_encodings['attention_mask'].to(self.device),
-                torch.tensor(val_labels, dtype=torch.long).to(self.device)
-            )
+          val_dataset = MyDataset(val_encodings, val_labels)
 
         training_args = TrainingArguments(
             output_dir=output_dir,
